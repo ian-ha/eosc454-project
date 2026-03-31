@@ -1,0 +1,31 @@
+name: eosc-454-project
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - choclo>=0.3.0
+  - discretize>=0.12
+  - empymod>=2.0.0
+  - geoana>=0.8.1
+  - ipywidgets
+  - jupyter
+  - numpy>=1.22
+  - matplotlib
+  - pandas
+  - pymatsolver>=0.3
+  - pytest
+  - scikit-learn>=1.2
+  - scipy>=1.12
+  - scooby
+  - simpeg=0.25.0
+  - sympy
+  - pydiso
+  - ipykernel
+  - pyyaml
+
+# solver
+# uncomment the next line if you are on an intel platform
+#  - pydiso # if on intel pc
+# uncomment this line if you want to install mumps solvers
+#  - python-mumps
+

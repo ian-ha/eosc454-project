@@ -1,0 +1,30 @@
+domain:
+  x_bounds: [1000, 1000]
+  y_bounds: [1000, 1000]
+  n_cells: [50, 50]
+
+survey:
+  x_spacing: 80
+  x_bounds: [-200, 200]
+  y_spacing: 20
+  y_bounds: [-200, 200]
+  z_height: 10
+  components: [tmi]
+
+inducing_field:
+  inclination: 90
+  declination: 0
+  amplitude: 50000
+
+mesh:
+  dx: 20
+  dy: 20
+  dz: 20
+  x_length: 4000
+  y_length: 4000
+  z_length: 2000
+
+model:
+  background_susceptibility: 0.1
+  curie_depth: 1000
+  curie_susceptibility: 0.05

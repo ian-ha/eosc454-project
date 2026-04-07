@@ -37,11 +37,17 @@ class MagneticsInversion:
         uncertainty_floor,
         min_iterations=5,
         target_chifact=None,
+        inversion_type = "LS",
+        uncertainty=None,
+        invert = True
     ):
         self.forward_simulation = forward_simulation
         self.uncertainty_floor = uncertainty_floor
         self.min_iterations = min_iterations
         self.target_chifact = target_chifact
+        self.inversion_type = inversion_type
+        self.uncertainty = uncertainty
+
         (
             self.data_mis,
             self.regularize,
@@ -49,71 +55,136 @@ class MagneticsInversion:
             self.ref_model,
             self.model_map,
             self.optimize,
+            self.uncertainty
         ) = self.set_up_inversion()
-        self.recovered_model, self.inv_problem = self.run_inverse_problem()
+        if invert:
+            self.recovered_model, self.inv_problem = self.run_inverse_problem()
+        else: 
+            self.recovered_model = None
+            self.inv_problem = None
+
+
+    def build_depth_taper_reference(
+        self,
+        chi0=0.1,
+        d_const_m=2000.0,
+        d_zero_m=10000.0,
+        ):
+        # Active-cell centers only
+        cc = self.forward_simulation.mesh.cell_centers[self.forward_simulation.active_cells]
+
+        # Depth below highest topography (m, positive downward)
+        depth_m = float(self.forward_simulation.z_topo.max()) - cc[:, 2]
+
+        if d_zero_m <= d_const_m:
+            raise ValueError("d_zero_m must be greater than d_const_m")
+
+        # Piecewise: constant above d_const_m, linear taper to zero at d_zero_m
+        ref = np.empty_like(depth_m, dtype=float)
+        shallow = depth_m <= d_const_m
+        deep = depth_m >= d_zero_m
+        mid = (~shallow) & (~deep)
+
+        ref[shallow] = chi0
+        ref[deep] = 0.0
+        ref[mid] = chi0 * (1.0 - (depth_m[mid] - d_const_m) / (d_zero_m - d_const_m))
+        return ref
 
     def set_up_inversion(self):
-        max_anomaly = np.max(np.abs(self.forward_simulation.dpred))
-        floor_uncertainty = self.uncertainty_floor * max_anomaly
-        uncertainty = np.ones_like(self.forward_simulation.dpred) * floor_uncertainty
+        if self.uncertainty is None:
+                max_anomaly = np.max(np.abs(self.forward_simulation.dpred))
+                floor_uncertainty = self.uncertainty_floor * max_anomaly
+                uncertainty = np.ones_like(self.forward_simulation.dpred) * floor_uncertainty
+        else: 
+                uncertainty = self.uncertainty
         data_object = data.Data(
-            self.forward_simulation.survey, self.forward_simulation.dpred, uncertainty
+            self.forward_simulation.survey, dobs = self.forward_simulation.dpred, standard_deviation = uncertainty
         )
         n_active = int(self.forward_simulation.active_cells.sum())
         model_map = maps.IdentityMap(nP=n_active)
         data_mis = data_misfit.L2DataMisfit(
             data=data_object, simulation=self.forward_simulation.simulation
         )
-        regularize = regularization.WeightedLeastSquares(
-            self.forward_simulation.mesh,
-            active_cells=self.forward_simulation.active_cells,
+        ref_model = self.build_depth_taper_reference(
+        chi0=0.0,      # choose your shallow prior susceptibility
+        d_const_m=2000, # 500M
+        d_zero_m=10000, # 5KM
         )
         starting_model = 1e-6 * np.ones(n_active)
-        ref_model = np.zeros_like(starting_model)
-        optimize = optimization.ProjectedGNCG(
-            maxIter=8,
-            lower=0.0,
-            maxIterLS=25,
-            cg_maxiter=40,
-            cg_rtol=1e-4,
-            tolF=1e-6,
-            tolX=1e-4,
-            tolG=1e-4,
-        )
+        if self.inversion_type == "LS":
+            regularize = regularization.WeightedLeastSquares(
+            self.forward_simulation.mesh,
+            active_cells=self.forward_simulation.active_cells,
+            reference_model=ref_model,
+            reference_model_in_smooth = False,
+            )
+            max_iterations = 10
+        elif self.inversion_type == "IRLS":
+            regularize = regularization.Sparse(
+            self.forward_simulation.mesh,
+            active_cells=self.forward_simulation.active_cells,
+            alpha_s = float(np.min([self.forward_simulation.mesh_dx, self.forward_simulation.mesh_dy, self.forward_simulation.mesh_dz]))**(-2.0),
+            alpha_x = 1,
+            alpha_y = 1,
+            alpha_z = 1,
+            reference_model=ref_model,
+            reference_model_in_smooth = False,
+            norms = [0,1,1,1]
+            )
+            max_iterations = 30
+        else:
+            raise ValueError("Inversion type not supported")
 
-        # SimPEG 0.25 has no built-in minIter option, so gate convergence by iter.
-        min_iter_stopper = {
-            "str": "%d : minIter  =     %3d    <= iter          =    %3d",
-            "left": lambda M: self.min_iterations,
-            "right": lambda M: M.iter,
-            "stopType": "optimal",
-        }
-        optimize.stoppers = [
-            optimization.StoppingCriteria.tolerance_f,
-            optimization.StoppingCriteria.moving_x,
-            optimization.StoppingCriteria.tolerance_g,
-            min_iter_stopper,
-            optimization.StoppingCriteria.iteration,
-        ]
-        return data_mis, regularize, starting_model, ref_model, model_map, optimize
+        optimize = optimization.ProjectedGNCG(
+            maxIter=max_iterations,
+            lower=0.0,
+            maxIterLS=15,
+            cg_maxiter=10,
+            cg_rtol=1e-2
+        )
+        return data_mis, regularize, starting_model, ref_model, model_map, optimize, uncertainty
 
     def run_inverse_problem(self):
         inv_problem = inverse_problem.BaseInvProblem(
             self.data_mis, self.regularize, self.optimize
         )
-        sensitivity_weights = directives.UpdateSensitivityWeights(every_iteration=False)
-        update_jacobi = directives.UpdatePreconditioner(update_every_iteration=True)
-        starting_beta = directives.BetaEstimate_ByEig(beta0_ratio=10)
-        beta_schedule = directives.BetaSchedule(coolingFactor=2.0, coolingRate=1)
-
-        directives_list = [
+        if self.inversion_type == "LS":
+            sensitivity_weights = directives.UpdateSensitivityWeights(every_iteration=False)
+            update_jacobi = directives.UpdatePreconditioner(update_every_iteration=True)
+            starting_beta = directives.BetaEstimate_ByEig(beta0_ratio=10)
+            beta_schedule = directives.BetaSchedule(coolingFactor=2.0, coolingRate=1)
+            directives_list = [
             sensitivity_weights,
             update_jacobi,
             starting_beta,
             beta_schedule,
         ]
-        if self.target_chifact is not None:
-            directives_list.append(directives.TargetMisfit(chifact=self.target_chifact))
+            if self.target_chifact is not None:
+                directives_list.append(directives.TargetMisfit(chifact=self.target_chifact))
+        elif self.inversion_type == "IRLS":
+            sensitivity_weights_irls = directives.UpdateSensitivityWeights(every_iteration=False)
+            starting_beta_irls = directives.BetaEstimate_ByEig(beta0_ratio=10)
+            update_jacobi_irls = directives.UpdatePreconditioner(update_every_iteration=True)
+            update_irls = directives.UpdateIRLS(
+                cooling_factor=2,
+                f_min_change=1e-4,
+                max_irls_iterations=25,
+                chifact_start=1.0,
+            )
+
+            directives_list = [
+                update_irls,
+                sensitivity_weights_irls,
+                starting_beta_irls,
+                update_jacobi_irls,
+            ]
+
+        else:
+            raise ValueError("Inversion type not supported")
+
+
+
+       
         inv_L2 = inversion.BaseInversion(inv_problem, directives_list)
         recovered_model = inv_L2.run(self.starting_model)
         return recovered_model, inv_problem

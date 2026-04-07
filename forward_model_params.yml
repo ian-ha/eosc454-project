@@ -1,14 +1,14 @@
 domain:
-  x_bounds: [1000, 1000]
-  y_bounds: [1000, 1000]
+  x_bounds: [5000, 5000]
+  y_bounds: [5000, 5000]
   n_cells: [50, 50]
 
 survey:
-  x_spacing: 80
-  x_bounds: [-200, 200]
-  y_spacing: 20
-  y_bounds: [-200, 200]
-  z_height: 10
+  x_spacing: 100
+  x_bounds: [-400, 400]
+  y_spacing: 100
+  y_bounds: [-400, 400]
+  z_height: 1000
   components: [tmi]
 
 inducing_field:
@@ -17,14 +17,14 @@ inducing_field:
   amplitude: 50000
 
 mesh:
-  dx: 20
-  dy: 20
-  dz: 20
+  dx: 100
+  dy: 100
+  dz: 200
   x_length: 4000
   y_length: 4000
-  z_length: 2000
+  z_length: 10000
 
 model:
-  background_susceptibility: 0.1
-  curie_depth: 1000
-  curie_susceptibility: 0.05
+  background_susceptibility: 0.01
+  curie_depth: 5000
+  curie_susceptibility: 0.0001

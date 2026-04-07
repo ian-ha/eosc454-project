@@ -38,6 +38,7 @@ class ForwardSimulation:
         self.survey_z_height = survey_params.get("z_height", None)
         self.survey_x_bounds = survey_params.get("x_bounds", None)
         self.survey_y_bounds = survey_params.get("y_bounds", None)
+
         self.x_survey, self.y_survey, self.z_survey = self.define_survey_locations(
             self.survey_x_spacing,
             self.survey_x_bounds,
@@ -56,10 +57,13 @@ class ForwardSimulation:
             amplitude=inducing_field_params.get("amplitude", 50000),
         )
         mesh_params = self.config.get("mesh", None)
+        self.mesh_dx = mesh_params.get("dx", None)
+        self.mesh_dy = mesh_params.get("dy", None)
+        self.mesh_dz = mesh_params.get("dz", None)
         self.mesh = self.define_mesh(
-            mesh_params.get("dx", None),
-            mesh_params.get("dy", None),
-            mesh_params.get("dz", None),
+            self.mesh_dx,
+            self.mesh_dy,
+            self.mesh_dz,
             mesh_params.get("x_length", None),
             mesh_params.get("y_length", None),
             mesh_params.get("z_length", None),
@@ -205,7 +209,7 @@ class ForwardSimulation:
         if randomize:  # Assign random susceptibility values to create a more realistic model.
             np.random.seed(0)  # for reproducibility
             background_susceptibility = np.random.uniform(
-                0, background_susceptibility, size=active.sum()
+                background_susceptibility*0.5, background_susceptibility, size=active.sum()
             )
             curie_susceptibility = np.random.uniform(
                 0, curie_susceptibility, size=curie_mask.sum()

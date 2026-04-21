@@ -1,7 +1,7 @@
 domain:
-  x_bounds: [5000, 5000]
-  y_bounds: [5000, 5000]
-  n_cells: [50, 50]
+  x_bounds: [8000, 8000]
+  y_bounds: [8000, 8000]
+  n_cells: [80, 80]
 
 survey:
   x_spacing: 100
@@ -17,14 +17,18 @@ inducing_field:
   amplitude: 50000
 
 mesh:
-  dx: 100
+  dx: 50
   dy: 100
   dz: 200
-  x_length: 4000
-  y_length: 4000
+  x_length: 8000
+  y_length: 8000
   z_length: 10000
 
 model:
   background_susceptibility: 0.01
-  curie_depth: 5000
-  curie_susceptibility: 0.0001
+  curie_depth: 3000
+  curie_susceptibility: 0.0000
+  curie_wave:
+    amplitude: 1000
+    wavelength: 1000
+    phase_degrees: 0

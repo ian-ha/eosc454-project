@@ -8,7 +8,7 @@ survey:
   x_bounds: [-400, 400]
   y_spacing: 100
   y_bounds: [-400, 400]
-  z_height: 1000
+  z_height: 300
   components: [tmi]
 
 inducing_field:
@@ -26,7 +26,7 @@ mesh:
 
 model:
   background_susceptibility: 0.01
-  curie_depth: 3000
+  curie_depth: 5000
   curie_susceptibility: 0.0000
   curie_wave:
     amplitude: 1000

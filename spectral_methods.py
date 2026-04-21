@@ -10,8 +10,8 @@ class SpectralMethods:
 
     # Paper-specified wavenumber ranges (Tanaka/Okubo methodology)
     # Z₀ (centroid): 0 to 0.05 rad/km; Z_t (top): 0.1 to 0.5 rad/km
-    PAPER_CENTROID_K_RANGE = (0.0, 0.00015)  # 0 to 0.05 rad/km
-    PAPER_TOP_K_RANGE = (0.0002, 0.0005)  # 0.1 to 0.5 rad/km
+    PAPER_CENTROID_K_RANGE = (0.0, 0.00025)  # 0 to 0.05 rad/km
+    PAPER_TOP_K_RANGE = (0.0003, 0.0014)  # 0.1 to 0.5 rad/km
 
     def __init__(self, forward_simulation: ForwardSimulation):
         self.forward_simulation = forward_simulation
@@ -318,7 +318,8 @@ if __name__ == "__main__":
     PROJECT_DIR = Path(__file__).parent
 
     forward_sim = ForwardSimulation(
-        config_yaml=PROJECT_DIR / "spectral_analysis_forward_model.yml"
+        config_yaml=PROJECT_DIR / "spectral_analysis_forward_model.yml",
+        randomize_model = True
     )
 
     spectral_estimator = SpectralMethods(forward_sim)

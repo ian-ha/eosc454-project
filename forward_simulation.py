@@ -301,7 +301,7 @@ class ForwardSimulation:
         ):  # Assign random susceptibility values to create a more realistic model.
             np.random.seed(0)  # for reproducibility
             background_susceptibility = np.random.uniform(
-                background_susceptibility * 0.5,
+                background_susceptibility * 0.1,
                 background_susceptibility,
                 size=active.sum(),
             )

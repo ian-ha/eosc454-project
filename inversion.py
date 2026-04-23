@@ -173,6 +173,8 @@ class MagneticsInversion:
         else:
             raise ValueError("Inversion type not supported")
 
+        self.max_iterations = max_iterations
+
         optimize = optimization.ProjectedGNCG(
             maxIter=max_iterations, lower=0.0, maxIterLS=15, cg_maxiter=10, cg_rtol=1e-2
         )
@@ -235,3 +237,88 @@ class MagneticsInversion:
         inv_L2 = inversion.BaseInversion(inv_problem, directives_list)
         recovered_model = inv_L2.run(self.starting_model)
         return recovered_model, inv_problem
+
+    def _build_fixed_beta_optimizer(self):
+        return optimization.ProjectedGNCG(
+            maxIter=self.max_iterations,
+            lower=0.0,
+            maxIterLS=15,
+            cg_maxiter=10,
+            cg_rtol=1e-2,
+        )
+
+    def _build_fixed_beta_problem(self, beta):
+        inv_problem = inverse_problem.BaseInvProblem(
+            self.data_mis,
+            self.regularize,
+            self._build_fixed_beta_optimizer(),
+        )
+        inv_problem.beta = float(beta)
+        return inv_problem
+
+    def run_fixed_beta_inversion(self, beta, starting_model=None):
+        if self.inversion_type != "LS":
+            raise ValueError("Tikhonov curves are intended for least-squares inversion")
+
+        inv_problem = self._build_fixed_beta_problem(beta)
+        inv_L2 = inversion.BaseInversion(inv_problem, [])
+        model0 = self.starting_model if starting_model is None else starting_model
+        recovered_model = inv_L2.run(model0)
+        return recovered_model, inv_problem
+
+    def compute_tikhonov_curve(
+        self,
+        beta_values=None,
+        beta_min=1e-5,
+        beta_max=1e5,
+        num_beta=21,
+        starting_model=None,
+        target_chifact=None,
+    ):
+        if self.inversion_type != "LS":
+            raise ValueError("Tikhonov curves are intended for least-squares inversion")
+
+        if beta_values is None:
+            beta_values = np.logspace(
+                np.log10(beta_max), np.log10(beta_min), int(num_beta)
+            )
+        else:
+            beta_values = np.asarray(beta_values, dtype=float)
+
+        model0 = self.starting_model if starting_model is None else starting_model
+        target_phi_d = self.get_target_misfit_value(target_chifact=target_chifact)
+        results = []
+
+        for beta in beta_values:
+            recovered_model, inv_problem = self.run_fixed_beta_inversion(
+                beta, starting_model=model0
+            )
+            phi_d = float(self.data_mis(recovered_model))
+            phi_m = float(self.regularize(recovered_model))
+            results.append(
+                {
+                    "beta": float(beta),
+                    "phi_d": phi_d,
+                    "phi_m": phi_m,
+                    "phi_total": phi_d + float(beta) * phi_m,
+                    "recovered_model": recovered_model,
+                    "inv_problem": inv_problem,
+                }
+            )
+
+        return {
+            "beta": np.asarray([item["beta"] for item in results], dtype=float),
+            "phi_d": np.asarray([item["phi_d"] for item in results], dtype=float),
+            "phi_m": np.asarray([item["phi_m"] for item in results], dtype=float),
+            "phi_total": np.asarray(
+                [item["phi_total"] for item in results], dtype=float
+            ),
+            "recovered_models": [item["recovered_model"] for item in results],
+            "target_phi_d": target_phi_d,
+        }
+
+    def get_target_misfit_value(self, target_chifact=None):
+        chifact = self.target_chifact if target_chifact is None else target_chifact
+        if chifact is None:
+            chifact = 1.0
+        return float(self.forward_simulation.dpred.size) * float(chifact)

@@ -1,4 +1,6 @@
-"""Spectral methods for Curie-depth estimation from synthetic magnetic data."""
+"""Spectral methods for Curie-depth estimation from synthetic magnetic data.
+Implementation based on recommendations from: Review of Curie point depth determination through different spectral
+methods applied to magnetic data (2020) """
 
 import numpy as np
 
@@ -8,10 +10,8 @@ from forward_simulation import ForwardSimulation
 class SpectralMethods:
     """Class to handle spectral methods for estimating Curie depth."""
 
-    # Paper-specified wavenumber ranges (Tanaka/Okubo methodology)
-    # Z₀ (centroid): 0 to 0.05 rad/km; Z_t (top): 0.1 to 0.5 rad/km
-    PAPER_CENTROID_K_RANGE = (0.0, 0.00025)  # 0 to 0.05 rad/km
-    PAPER_TOP_K_RANGE = (0.0003, 0.0014)  # 0.1 to 0.5 rad/km
+    PAPER_CENTROID_K_RANGE = (0.0, 0.00025)
+    PAPER_TOP_K_RANGE = (0.0003, 0.0014) 
 
     def __init__(self, forward_simulation: ForwardSimulation):
         self.forward_simulation = forward_simulation
